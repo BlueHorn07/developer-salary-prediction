@@ -37,6 +37,6 @@ A salary is one of impoartant thing that we are interested in. [Stackoverflow](h
 ## Members
 
 - Ha Seokyun, 20180775, CSED / [BlueHorn07@Github](https://github.com/BlueHorn07)
-- Lee Donghyun, , MATH
-- Oh Eun, ,IMEN
+- Lee Donghyun, 20180661, MATH / [dlehdgus9887@GitHub](https://github.com/dlehdgus9887)
+- Oh Eun, 20212717, IMEN / [oheun96@GitHub](https://github.com/oheun96)
 
