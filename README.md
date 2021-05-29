@@ -14,7 +14,7 @@ A salary is one of impoartant thing that we are interested in. [Stackoverflow](h
 
 We use 2018-2020 StackOverflow Annual Developer Survey data. We've applied IQR method to handle outliers and analyzed the most frequent answer in the dataset.
 
-We divide the dataset into train and test set as 7:3 ratio.
+In our dataset, there are 62,741 number of samples, and we divide the dataset into train and test set as 7:3 ratio.
 
 ## [Models](#models)
 
