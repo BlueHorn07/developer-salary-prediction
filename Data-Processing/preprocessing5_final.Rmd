@@ -1,0 +1,103 @@
+---
+title: "Final_Preprocess"
+output: html_document
+---
+
+# spliting personal preprocess  categories / dummies
+```{r}
+library(dplyr)
+
+personal = read.csv("personal_preprocess.csv")
+
+names(personal)
+cat = c("Country", "Ethnicity","Gender" , "UndergradMajor")
+
+personal_cat = select(personal, Salary, year, Age, EdLevel,  all_of(cat))
+personal_dum = select(personal, !all_of(cat))
+
+```
+
+
+# combining three
+```{r}
+
+skills = read.csv("Final_skills.csv")
+work = read.csv("Final_workplace.csv")
+
+
+work = work %>% select(-X)
+skills = skills %>% select(-year, -Salary)
+
+total_cat = cbind(personal_cat, skills, work)
+total_dum = cbind(personal_dum, skills, work)
+total_dum = total_dum %>%  relocate(Salary)
+
+
+write.csv(total_cat, "total_cat.csv", row.names = FALSE)
+write.csv(total_dum, "total_dum.csv", row.names = FALSE)
+```
+
+
+
+
+
+# test/train split
+```{r}
+set.seed(2021)
+n <- nrow(total_cat)
+test_idx <- sample.int(n, size = round(0.3 * n))
+
+
+total_dum_train <- total_dum[-test_idx, ]
+nrow(total_dum_train)
+total_dum_test <- total_dum[test_idx, ]
+nrow(total_dum_test)
+
+
+total_cat_train <- total_cat[-test_idx, ]
+nrow(total_cat_train)
+total_cat_test <- total_cat[test_idx, ]
+nrow(total_cat_test)
+
+write.csv(total_dum_train, "total_dum_train.csv", row.names = FALSE)
+write.csv(total_dum_test, "total_dum_test.csv", row.names = FALSE)
+write.csv(total_cat_train, "total_cat_train.csv", row.names = FALSE)
+write.csv(total_cat_test, "total_cat_test.csv", row.names = FALSE)
+
+```
+
+
+# checking if all is good
+```{r}
+
+raw = read.csv("raw_filtered.csv")
+total_cat = read.csv("total_cat.csv")
+total_dum = read.csv("total_dum.csv")
+total_dum_train = read.csv("total_dum_train.csv")
+total_dum_test = read.csv("total_dum_test.csv")
+total_cat_train = read.csv("total_cat_train.csv")
+total_cat_test = read.csv("total_cat_test.csv")
+
+
+
+```
+
+
+
+# salary outlier handling
+```{r}
+
+length(which(total_cat$Salary > 200000)) / length(total_cat$Salary)
+
+
+```
+
+
+
+
+```
+
+
+
+
+

@@ -1,0 +1,510 @@
+---
+title: "preprocessing personal/edu"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(plyr)
+
+survey18 = read.csv("survey_results_public_2018.csv", encoding = "UTF-8")
+survey19 = read.csv("survey_results_public_2019.csv")
+survey20 = read.csv("survey_results_public_2020.csv", encoding = "UTF-8")
+```
+
+
+
+**raw data filtering process (not used in project)**
+```{r}
+
+raw18 = select(survey18, ConvertedSalary,
+               Country, Age, RaceEthnicity, Gender, FormalEducation, UndergradMajor,
+               LanguageWorkedWith, DatabaseWorkedWith, PlatformWorkedWith, FrameworkWorkedWith , OperatingSystem,
+               Employment, JobSearchStatus, CompanySize ,YearsCoding, YearsCodingProf,  DevType)
+raw19 = select(survey19, ConvertedComp,
+               Country, Age, Ethnicity, Gender, EdLevel, UndergradMajor,
+               LanguageWorkedWith, DatabaseWorkedWith, PlatformWorkedWith, WebFrameWorkedWith , MiscTechWorkedWith, OpSys,
+               Employment, JobSeek, OrgSize ,YearsCode, YearsCodePro,  DevType)
+raw20 = select(survey20, ConvertedComp,
+               Country, Age, Ethnicity, Gender, EdLevel, UndergradMajor,
+               LanguageWorkedWith, DatabaseWorkedWith, PlatformWorkedWith, WebframeWorkedWith , MiscTechWorkedWith, OpSys,
+               Employment, JobSeek, OrgSize ,YearsCode, YearsCodePro,  DevType)
+
+
+
+
+raw18$year = 2018
+raw18 = raw18 %>%  relocate(year)
+raw19$year = 2019
+raw19 = raw19 %>%  relocate(year)
+raw20$year = 2020
+raw20 = raw20 %>%  relocate(year)
+
+
+raw18 = raw18 %>% 
+  dplyr::rename(Salary = ConvertedSalary,
+                Ethnicity = RaceEthnicity, EdLevel = FormalEducation,
+                WebFrameWorkedWith = FrameworkWorkedWith, OpSys = OperatingSystem,
+                JobSeek = JobSearchStatus, OrgSize  = CompanySize, YearsCode = YearsCoding, YearsCodePro = YearsCodingProf)
+raw19 = raw19 %>% 
+  dplyr::rename(Salary = ConvertedComp)
+raw20 = raw20 %>%  
+  dplyr::rename(Salary = ConvertedComp, WebFrameWorkedWith = WebframeWorkedWith)
+
+
+library(tibble)
+raw18 <- raw18 %>%
+  add_column(MiscTechWorkedWith = NA) %>%
+  relocate(MiscTechWorkedWith, .after = WebFrameWorkedWith)
+
+raw_total = rbind(raw18, raw19, raw20)
+
+country = as.data.frame(table(raw_total["Country"]))
+country = country[country$Freq > 3000, ]
+raw_total2 = raw_total %>% filter(Country %in%
+                                      as.character(factor(country$Var1)))
+
+raw_total3 = raw_total2 %>% 
+  filter(!is.na(Salary)) %>%
+  filter(Salary != 0)
+
+write.csv(raw_total3, "raw_filtered.csv", row.names = FALSE)
+```
+
+
+
+** personal info & education **
+
+Country
+Age
+Ethnicity
+Gender
+EdLevel
+UndergradMajor
+
+```{r}
+personal18 = select(survey18, Country, Age, RaceEthnicity, 
+                  Gender, FormalEducation, UndergradMajor,
+                  ConvertedSalary)
+personal19 = select(survey19, Country, Age, Ethnicity, 
+                    Gender, EdLevel, UndergradMajor,
+                    ConvertedComp)
+personal20 = select(survey20, Country, Age, Ethnicity, 
+                    Gender, EdLevel, UndergradMajor,
+                    ConvertedComp)
+
+
+personal18$year = 2018
+personal18 = personal18 %>%  relocate(year)
+
+personal19$year = 2019
+personal19 = personal19 %>%  relocate(year)
+
+personal20$year = 2020
+personal20 = personal20 %>%  relocate(year)
+
+personal18 = personal18 %>% 
+  dplyr::rename(Ethnicity = RaceEthnicity, EdLevel = FormalEducation,
+                Salary = ConvertedSalary)
+personal19 = personal19 %>% 
+  dplyr::rename(Salary = ConvertedComp)
+personal20 = personal20 %>%  
+  dplyr::rename(Salary = ConvertedComp)
+```
+
+
+
+1. country : country code?
+
+```{r}
+unique(personal18["Country"])
+unique(personal19["Country"])
+unique(personal20["Country"])
+
+table(is.na(personal18["Country"]))
+table(is.na(personal19["Country"]))
+table(is.na(personal20["Country"]))
+
+```
+
+
+```{r}
+con18 = as.data.frame(table(personal18["Country"]))
+con18 = con18[con18$Freq > 1000, ]
+con19 = as.data.frame(table(personal19["Country"]))
+con19 = con19[con19$Freq > 1000, ]
+con20 = as.data.frame(table(personal20["Country"]))
+con20 = con20[con20$Freq > 1000, ]
+```
+
+2. age : range or numeric?
+
+```{r}
+unique(personal18["Age"])
+
+table(is.na(personal18["Age"]))
+table(is.na(personal19["Age"]))
+table(is.na(personal20["Age"]))
+```
+```{r}
+personal18 = personal18 %>% 
+  dplyr::rename(age_ran = Age)
+personal18$Age = NA
+personal18 = personal18 %>%  relocate(Age, .after = Country)
+```
+
+99 year old developers?
+```{r}
+
+old = as.data.frame(table(personal19["Age"]))
+
+```
+
+Age numeric - 
+rather than average, 
+calculate median value in 2019~2020 each group 
+
+
+```{r}
+age1920 = rbind(personal19, personal20)["Age"]
+
+under18 = median((age1920 %>% filter(Age <18))$Age)
+over18 = median((age1920 %>% filter(Age %in% c(18:24)))$Age)
+over25 = median((age1920 %>% filter(Age %in% c(25:34)))$Age)
+over35 = median((age1920 %>% filter(Age %in% c(35:44)))$Age)
+over45 = median((age1920 %>% filter(Age %in% c(45:54)))$Age)
+over55 = median((age1920 %>% filter(Age %in% c(55:64)))$Age)
+over65 = median((age1920 %>% filter(Age >64))$Age)
+
+```
+
+Age numeric
+```{r}
+
+age_dict = list("Under 18 years old" = under18,
+                "18 - 24 years old" = over18,
+                "25 - 34 years old" = over25,
+                "35 - 44 years old" = over35,
+                "45 - 54 years old" = over45,
+                "55 - 64 years old" = over55,
+                "65 years or older" = over65
+                  )
+
+for (i in 1:length(age_dict)) {
+  personal18["Age"] = personal18["Age"] %>% 
+  replace( personal18["age_ran"] == names(age_dict[i])  , age_dict[[i]]) %>%
+  unlist(unname(personal18["Age"]))
+
+  }
+
+```
+
+
+Age range
+```{r}
+
+
+personal19$age_ran = personal19$Age %>% 
+  replace(personal19$Age %in% c(1:17), values = "Under 18 years old") %>%
+  replace(personal19$Age %in% c(18:24), values = "18 - 24 years old") %>%
+  replace(personal19$Age %in% c(25:34), values = "25 - 34 years old") %>%
+  replace(personal19$Age %in% c(35:44), values = "35 - 44 years old") %>%
+  replace(personal19$Age %in% c(45:54), values = "45 - 54 years old") %>%
+  replace(personal19$Age %in% c(55:64), values = "55 - 64 years old") %>%
+  replace(personal19$Age %in% c(65:100), values = "65 years or older")
+personal19 = personal19 %>%  relocate(age_ran, .after = Age)
+
+personal20$age_ran = personal20$Age %>% 
+  replace(personal20$Age %in% c(1:17), values = "Under 18 years old") %>%
+  replace(personal20$Age %in% c(18:24), values = "18 - 24 years old") %>%
+  replace(personal20$Age %in% c(25:34), values = "25 - 34 years old") %>%
+  replace(personal20$Age %in% c(35:44), values = "35 - 44 years old") %>%
+  replace(personal20$Age %in% c(45:54), values = "45 - 54 years old") %>%
+  replace(personal20$Age %in% c(55:64), values = "55 - 64 years old") %>%
+  replace(personal20$Age %in% c(65:100), values = "65 years or older")
+personal20 = personal20 %>%  relocate(age_ran, .after = Age)
+
+
+```
+
+
+
+3. Ethnicity : lot of mixed race  --> seperate incoding
+
+```{r}
+unique(personal18["Ethnicity"])
+unique(personal19["Ethnicity"])
+unique(personal20["Ethnicity"])
+
+table(is.na(personal18["Ethnicity"]))
+table(is.na(personal19["Ethnicity"]))
+table(is.na(personal20["Ethnicity"]))
+```
+```{r}
+Eth18 = as.data.frame(table(personal18["Ethnicity"]))
+Eth18 = Eth18[Eth18$Freq > 1000, ]
+Eth19 = as.data.frame(table(personal19["Ethnicity"]))
+Eth19 = Eth19[Eth19$Freq > 1000, ]
+Eth20 = as.data.frame(table(personal20["Ethnicity"]))
+Eth20 = Eth20[Eth20$Freq > 1000, ]
+
+
+```
+
+
+
+```{r}
+race_dict = list("Black or of African descent" = "Black",
+                  "East Asian" = "East Asian",
+                  "South Asian" = "South Asian",
+                  "Hispanic or Latino/Latina" = "Hispanic",
+                  "Hispanic or Latino/a/x" = "Hispanic",
+                  "Middle Eastern" = "Middle Eastern",
+                  "Southeast Asian" = "Southeast Asian",
+                  "South Asian" = "South Asian",
+                  "White or of European descent" = "White"
+
+                  )
+
+for (i in 1:length(race_dict)) {
+  personal18["Ethnicity"] = personal18["Ethnicity"] %>% 
+  replace( personal18["Ethnicity"] == names(race_dict[i])  , race_dict[[i]]) %>%
+  unlist(unname(personal18["Ethnicity"]))
+  
+  personal19["Ethnicity"] = personal19["Ethnicity"] %>% 
+  replace( personal19["Ethnicity"] == names(race_dict[i])  , race_dict[[i]]) %>%
+  unlist(unname(personal19["Ethnicity"]))
+  
+  personal20["Ethnicity"] = personal20["Ethnicity"] %>% 
+  replace( personal20["Ethnicity"] == names(race_dict[i])  , race_dict[[i]]) %>%
+  unlist(unname(personal20["Ethnicity"]))
+  }
+
+
+personal18$Ethnicity = replace(personal18$Ethnicity, 
+                               !personal18$Ethnicity %in% c("Black","East Asian","White","Hispanic","Middle Eastern",
+                                                            "Southeast Asian","South Asian","White", NA),
+                               values = 'Multi Racial')
+
+personal19$Ethnicity = replace(personal19$Ethnicity, 
+                               !personal19$Ethnicity %in% c("Black","East Asian","White","Hispanic","Middle Eastern",
+                                                            "Southeast Asian","South Asian","White", NA),
+                               values = 'Multi Racial')
+
+personal20$Ethnicity = replace(personal20$Ethnicity, 
+                               !personal20$Ethnicity %in% c("Black","East Asian","White","Hispanic","Middle Eastern",
+                                                            "Southeast Asian","South Asian","White", NA),
+                               values = 'Multi Racial')
+
+
+
+unique(personal18["Ethnicity"])
+unique(personal19["Ethnicity"])
+unique(personal20["Ethnicity"])
+
+table(is.na(personal18["Ethnicity"]))
+table(is.na(personal19["Ethnicity"]))
+table(is.na(personal20["Ethnicity"]))
+
+
+
+
+nEth18 = as.data.frame(table(personal18["Ethnicity"]))
+nEth19 = as.data.frame(table(personal19["Ethnicity"]))
+nEth20 = as.data.frame(table(personal20["Ethnicity"]))
+```
+
+
+
+4. Gender : non-binary~ & trans --> all non-binary  : total 3 category(excluding N/A)
+
+```{r}
+unique(personal18["Gender"])
+unique(personal19["Gender"])
+unique(personal20["Gender"])
+
+table(is.na(personal18["Gender"]))
+table(is.na(personal19["Gender"]))
+table(is.na(personal20["Gender"]))
+```
+```{r}
+gender_dict = list("Male" = "Male",
+                  "Female" = "Female",
+                  "Man" = "Male",
+                  "Woman" = "Female",
+                  
+                  "Female;Male;Transgender;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Female;Male" = "non-binary",
+                  "Male;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Transgender" = "non-binary",
+                  "Female;Transgender" = "non-binary",
+                  "Transgender;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Female;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Female;Transgender;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Male;Transgender" = "non-binary",
+                  "Female;Male;Transgender" = "non-binary",
+                  "Female;Male;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Male;Transgender;Non-binary, genderqueer, or gender non-conforming" = "non-binary",
+                  "Woman;Non-binary, genderqueer, or gender non-conforming"  = "non-binary",
+                  "Woman;Man;Non-binary, genderqueer, or gender non-conforming"  = "non-binary",
+                  "Woman;Man"  = "non-binary",
+                  "Man;Non-binary, genderqueer, or gender non-conforming"  = "non-binary"
+                  )
+
+for (i in 1:length(gender_dict)) {
+  personal18["Gender"] = personal18["Gender"] %>% 
+  replace( personal18["Gender"] == names(gender_dict[i])  , gender_dict[[i]]) %>%
+  unlist(unname(personal18["Gender"]))
+  
+  personal19["Gender"] = personal19["Gender"] %>% 
+  replace( personal19["Gender"] == names(gender_dict[i])  , gender_dict[[i]]) %>%
+  unlist(unname(personal19["Gender"]))
+  
+  personal20["Gender"] = personal20["Gender"] %>% 
+  replace( personal20["Gender"] == names(gender_dict[i])  , gender_dict[[i]]) %>%
+  unlist(unname(personal20["Gender"]))
+  }
+
+unique(personal18["Gender"])
+unique(personal19["Gender"])
+unique(personal20["Gender"])
+
+table(is.na(personal18["Gender"]))
+table(is.na(personal19["Gender"]))
+table(is.na(personal20["Gender"]))
+```
+
+
+5. Education Level : 10 category
+
+```{r}
+unique(personal18["EdLevel"])
+unique(personal19["EdLevel"])
+unique(personal20["EdLevel"])
+
+table(is.na(personal18["EdLevel"]))
+table(is.na(personal19["EdLevel"]))
+table(is.na(personal20["EdLevel"]))
+```
+
+```{r}
+edu_dict = list("Bachelor’s degree (BA, BS, B.Eng., etc.)" = "bachelors",
+                "Bachelor?셲 degree (BA, BS, B.Eng., etc.)"= "bachelors",
+                "Bachelor’s degree (B.A., B.S., B.Eng., etc.)"= "bachelors",
+                "Associate degree" = "Associate",
+                "Associate degree (A.A., A.S., etc.)" = "Associate",
+                "Some college/university study without earning a degree"= "college/NoDegree",
+                "Master’s degree (MA, MS, M.Eng., MBA, etc.)" = "masters",
+                "Master?셲 degree (MA, MS, M.Eng., MBA, etc.)"= "masters",
+                "Master’s degree (M.A., M.S., M.Eng., MBA, etc.)"= "masters",
+                "Secondary school (e.g. American high school, German Realschule or Gymnasium, etc.)" = "Secondary",
+                "Primary/elementary school" = "elementary",
+                "Professional degree (JD, MD, etc.)" = "Professional",
+                "I never completed any formal education" = "No edu",
+                "Other doctoral degree (Ph.D, Ed.D., etc.)" = "doctoral",
+                "Other doctoral degree (Ph.D., Ed.D., etc.)" = "doctoral"
+                )
+
+for (i in 1:length(edu_dict)) {
+  personal18["EdLevel"] = personal18["EdLevel"] %>% 
+  replace( personal18["EdLevel"] == names(edu_dict[i])  , edu_dict[[i]]) %>%
+  unlist(unname(personal18["EdLevel"]))
+  
+  personal19["EdLevel"] = personal19["EdLevel"] %>% 
+  replace( personal19["EdLevel"] == names(edu_dict[i])  , edu_dict[[i]]) %>%
+  unlist(unname(personal19["EdLevel"]))
+  
+  personal20["EdLevel"] = personal20["EdLevel"] %>% 
+  replace( personal20["EdLevel"] == names(edu_dict[i])  , edu_dict[[i]]) %>%
+  unlist(unname(personal20["EdLevel"]))
+  }
+
+unique(personal18["EdLevel"])
+unique(personal19["EdLevel"])
+unique(personal20["EdLevel"])
+
+table(is.na(personal18["EdLevel"]))
+table(is.na(personal19["EdLevel"]))
+table(is.na(personal20["EdLevel"]))
+
+
+```
+
+
+
+
+6. UndergradMajor : 13 category
+
+```{r}
+unique(personal18["UndergradMajor"])
+unique(personal19["UndergradMajor"])
+unique(personal20["UndergradMajor"])
+
+table(is.na(personal18["UndergradMajor"]))
+table(is.na(personal19["UndergradMajor"]))
+table(is.na(personal20["UndergradMajor"]))
+```
+
+
+```{r}
+major_dict = list("Mathematics or statistics" = "Math/Stat",
+                  "A natural science (ex. biology, chemistry, physics)" = "Natural Science",
+                  "A natural science (such as biology, chemistry, physics, etc.)"= "Natural Science",
+                  "Computer science, computer engineering, or software engineering" = "Computer Science",    
+                  "Fine arts or performing arts (ex. graphic design, music, studio art)" = "Arts",
+                  "Fine arts or performing arts (such as graphic design, music, studio art, etc.)"= "Arts",
+                  "Information systems, information technology, or system administration" = "Information Science",
+                  "Another engineering discipline (ex. civil, electrical, mechanical)" = "Engineering",
+                  "Another engineering discipline (such as civil, electrical, mechanical, etc.)" = "Engineering",
+                  "A business discipline (ex. accounting, finance, marketing)" = "Business", 
+                  "A business discipline (such as accounting, finance, marketing, etc.)" = "Business",
+                  "A social science (ex. anthropology, psychology, political science)" = "Social Science",
+                  "A social science (such as anthropology, psychology, political science, etc.)" = "Social Science",
+                  "Web development or web design" = "Web Development" ,  
+                  "A humanities discipline (ex. literature, history, philosophy)" = "Humanities" ,      
+                  "A humanities discipline (such as literature, history, philosophy, etc.)" = "Humanities" ,
+                  "A health science (ex. nursing, pharmacy, radiology)" = "Health Science", 
+                  "A health science (such as nursing, pharmacy, radiology, etc.)"= "Health Science",
+                  "I never declared a major" = "No Major" ) 
+
+for (i in 1:length(major_dict)) {
+  personal18["UndergradMajor"] = personal18["UndergradMajor"] %>% 
+  replace( personal18["UndergradMajor"] == names(major_dict[i])  , major_dict[[i]]) %>%
+  unlist(unname(personal18["UndergradMajor"]))
+  
+  personal19["UndergradMajor"] = personal19["UndergradMajor"] %>% 
+  replace( personal19["UndergradMajor"] == names(major_dict[i])  , major_dict[[i]]) %>%
+  unlist(unname(personal19["UndergradMajor"]))
+  
+  personal20["UndergradMajor"] = personal20["UndergradMajor"] %>% 
+  replace( personal20["UndergradMajor"] == names(major_dict[i])  , major_dict[[i]]) %>%
+  unlist(unname(personal20["UndergradMajor"]))
+  }
+
+unique(personal18["UndergradMajor"])
+unique(personal19["UndergradMajor"])
+unique(personal20["UndergradMajor"])
+
+table(is.na(personal18["UndergradMajor"]))
+table(is.na(personal19["UndergradMajor"]))
+table(is.na(personal20["UndergradMajor"]))
+
+
+
+```
+
+
+
+
+```{r}
+write.csv(personal18, "personal18.csv", row.names = FALSE)
+write.csv(personal19, "personal19.csv", row.names = FALSE)
+write.csv(personal20, "personal20.csv", row.names = FALSE)
+
+personal_total = rbind(personal18, personal19, personal20)
+write.csv(personal_total, "personal_total.csv", row.names = FALSE)
+```
+
+
+
+

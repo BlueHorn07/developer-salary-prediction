@@ -10,7 +10,13 @@ This is a collection of code that our team have written and experimented with.
 
 A salary is one of impoartant thing that we are interested in. [Stackoverflow](https://stackoverflow.com/) conducts [anuual survery for developers](https://insights.stackoverflow.com/survey), so we suggest a project to construct the developer salary model using that survery data. We refine the survey into the dataset by handling outliers and NaN values. We’ve experimented six models of parameteric and non-paremteric. We report what features are important to predict salary, and compare the results. We release our dataset and code in GitHub.
 
-## Models
+## [Dataset](#dataset)
+
+We use 2018-2020 StackOverflow Annual Developer Survey data. We've applied IQR method to handle outliers and analyzed the most frequent answer in the dataset.
+
+We divide the dataset into train and test set as 7:3 ratio.
+
+## [Models](#models)
 
 - Linear Regression
   - Subset Selection

@@ -1,0 +1,306 @@
+---
+title: "XGboost"
+output: html_document
+---
+
+
+import library and data set
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+setwd("C:/Users/oheun/Desktop/DMining/DMine_final project")
+train = read.csv("final_train.csv")
+test = read.csv("final_test.csv")
+
+
+library(xgboost)
+```
+
+
+
+data prep for xgboost & making validation set
+```{r, warning=FALSE, message=FALSE}
+
+set.seed(20)
+train_id = sample(1:nrow(train), size = floor(0.8*nrow(train)), replace = FALSE)
+valid = train[-train_id, ]
+training = train[train_id, ]
+
+
+trainx=model.matrix(Salary~.,train)[,-c(1)]
+trainy=train$Salary
+
+
+trainingx=model.matrix(Salary~.,training)[,-c(1)]
+trainingy=training$Salary
+
+validx=model.matrix(Salary~.,valid)[,-c(1)]
+validy=valid$Salary
+
+testx=model.matrix(Salary~.,test)[,-c(1)]
+testy=test$Salary
+
+
+```
+
+
+
+
+**parameter selection**
+using validation set
+```{r, warning=FALSE, message=FALSE}
+iter = 10
+depth = matrix(ncol=3, nrow=iter)
+for (i in 1:iter)
+{
+bst = xgboost(data= trainingx, label= trainingy, max.depth = i, eta = 0.05, nrounds = 1000
+              , colsample_bytree = 0.7,objective = "reg:squarederror")
+
+bst.pred <- predict(bst, validx)
+
+
+
+depth[i,] = c(i,sqrt(mean((bst.pred - validy)^2)),
+            1 - sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2))
+
+}
+
+
+iter = 10
+eta = matrix(ncol=3, nrow=iter)
+for (i in 1:iter)
+{
+  k = i*0.01
+  bst = xgboost(data= trainingx, label= trainingy, max.depth = 5, eta = k, nrounds = 1000
+                , colsample_bytree = 0.7,objective = "reg:squarederror")
+  
+  bst.pred <- predict(bst, validx)
+  
+  
+  
+  
+  eta[i,] = c(k,sqrt(mean((bst.pred - validy)^2)),
+              1 - (sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2)))
+  
+}
+
+
+iter = 20
+nrounds = matrix(ncol=3, nrow=iter)
+for (i in 1:iter)
+{
+  k = i*100
+  bst = xgboost(data= trainingx, label= trainingy, max.depth = 5, eta = 0.05, nrounds = k
+                , colsample_bytree = 0.7,objective = "reg:squarederror")
+  
+  bst.pred <- predict(bst, validx)
+  
+  
+  
+  
+  nrounds[i,] = c(k,sqrt(mean((bst.pred - validy)^2)),
+                  1 - sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2))
+  
+}
+
+
+
+iter = 10
+colsample = matrix(ncol=3, nrow=iter)
+for (i in 1:iter)
+{
+  k = 0.1*i
+  bst = xgboost(data= trainingx, label= trainingy, max.depth = 5, eta = 0.05, nrounds = 1000
+                , colsample_bytree = k, objective = "reg:squarederror")
+  
+  bst.pred <- predict(bst, validx)
+  
+  
+  colsample[i,] = c(k,sqrt(mean((bst.pred - validy)^2)),
+                  1 - sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2))
+  
+}
+
+
+
+
+iter = 10
+subsample = matrix(ncol=3, nrow=iter)
+for (i in 1:iter)
+{
+  k = 0.1*i
+  bst = xgboost(data= trainingx, label= trainingy, max.depth = 5, eta = 0.05, nrounds = 1000
+                , colsample_bytree = 0.5, objective = "reg:squarederror", subsample = k)
+  
+  bst.pred <- predict(bst, validx)
+  
+  
+  subsample[i,] = c(k,sqrt(mean((bst.pred - validy)^2)),
+                    1 - sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2))
+  
+}
+
+
+colsample2 = as.data.frame(colsample)
+names(colsample2) = c('colsample', 'RSME', 'r^2')
+depth2 = as.data.frame(depth)
+names(depth2) = c('depth', 'RSME', 'r^2')
+eta2 = as.data.frame(eta)
+names(eta2) = c('eta', 'RSME', 'r^2')
+nrounds2 = as.data.frame(nrounds)
+names(nrounds2) = c('nrounds', 'RSME', 'r^2')
+subsample2 = as.data.frame(subsample)
+names(subsample2) = c('subsample', 'RSME', 'r^2')
+
+
+param = cbind(colsample2, depth2, eta2, nrounds2, subsample2)
+
+write.csv(param, "param.csv", row.names = FALSE)
+
+```
+
+
+
+**feature importance**
+using validation set
+
+```{r, warning=FALSE, message=FALSE}
+
+bst = xgboost(data= trainingx, label= trainingy, max.depth = 5, eta = 0.04, nrounds = 700
+              , colsample_bytree = 0.4, objective = "reg:squarederror", subsample = 0.9)
+
+bst.pred <- predict(bst, validx)
+
+rsme = sqrt(mean((bst.pred - validy)^2))
+rsq = 1 - sum((bst.pred - validy)^2)/sum((mean(validy) - validy)^2)
+
+
+
+importance <- xgb.importance(feature_names = names(trainingx), model = bst)
+xgb.plot.importance(importance_matrix = importance, top_n = 15)
+
+
+
+full_feat = data.frame(0, 101, rsme, rsq)
+names(full_feat) = c('min_import','feat_num', 'RSME', 'r_squ')
+
+
+```
+
+
+
+**feature selection**
+using 5-fold cross validation
+
+```{r, warning=FALSE, message=FALSE}
+
+
+set.seed(52)
+
+folds = sample(1:5, nrow(train), replace =TRUE)
+
+cv.errors =matrix(NA ,5, 86, dimnames =list(NULL , paste (16:101)))
+
+for(j in 1:5){
+
+  for(i in 1:86){
+    k = i+15
+    
+    features = importance$Feature[c(1:k)]
+    
+    
+    ftrainx=model.matrix(Salary~.,train[folds!=j,])[,features]
+    fvalidx=model.matrix(Salary~.,train[folds==j,])[,features]
+    
+    
+    bst_feat = xgboost(data= ftrainx, label= trainy[folds!=j], max.depth = 5, eta = 0.04, nrounds = 700
+                       , colsample_bytree = 0.4, objective = "reg:squarederror", subsample = 0.9)
+    bst_feat.pred <- predict(bst_feat, fvalidx)
+    
+    f_rsme = sqrt(mean((bst_feat.pred - trainy[folds==j])^2))
+
+    # fill in cv.errors matrix : MES of jth fold, i size subset
+    cv.errors[j,i] = f_rsme
+  }
+}
+
+
+
+# mean rmse of each subset
+mean.cv.errors = apply(cv.errors ,2, mean)
+
+# choose the model with the lowest mean.cv.errors
+min.cv.errors = which.min(mean.cv.errors) + 15
+
+x = 16:101
+plot(x,mean.cv.errors, xlab = "number of features", ylab = "mean RSME", 
+     main = "mean RSME of 5-fold validation set by the number of features")
+
+
+```
+
+
+## predicting test set
+
+```{r, warning=FALSE, message=FALSE}
+min.cv.errors = 80
+
+cv.features = importance$Feature[c(1:min.cv.errors)]
+
+
+ftrainx=model.matrix(Salary~.,train)[,cv.features]
+ftestx=model.matrix(Salary~.,test)[,cv.features]
+
+
+bst_feat = xgboost(data= ftrainx, label= trainy, max.depth = 5, eta = 0.04, nrounds = 700
+                   , colsample_bytree = 0.4, objective = "reg:squarederror", subsample = 0.9)
+bst_feat.pred <- predict(bst_feat, ftestx)
+
+RSME = sqrt(mean((bst_feat.pred - testy)^2))
+r_squ = 1 - sum((bst_feat.pred - testy)^2)/sum((mean(testy) - testy)^2)
+
+cat("\nRSME : ", RSME, "\nR^2 = ", r_squ, "\n  ")
+
+
+
+x = 1:length(testy)
+plot(range(x), range(c(bst_feat.pred,testy)), type='n')
+lines(x, testy, type="l", col="green" )
+lines(x , bst_feat.pred , type="l", col="red" )
+
+
+
+
+```
+
+
+plotting 200 samples of data
+
+```{r, warning=FALSE, message=FALSE}
+
+library(ggplot2)
+x = 1:200
+plot(range(x), range(c(bst_feat.pred,testy)), type='n', 
+     xlab = "test data 1~200", ylab = "Salary", main = "comparison plot for the prediction and actual value - XGBoost",
+     )
+lines(x, testy[x], type="l", col="orange" )
+lines(x , bst_feat.pred[x] , type="l", col= alpha("blue", 0.6) )
+legend("topleft", 
+       col = c('orange', 'blue'),
+       lty= c(1,1),
+       lwd = 2,
+       cex=0.9,
+       legend = c("actual value", "prediction" )
+       )
+
+
+```
+
+
+
+```{r, warning=FALSE, message=FALSE}
+
+
+
+```
+
+

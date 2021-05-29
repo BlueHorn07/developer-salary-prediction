@@ -1,0 +1,61 @@
+---
+title: "filter by country"
+output: html_document
+---
+
+# filtering
+
+
+```{r}
+library(dplyr)
+library(plyr)
+
+personal = read.csv("personal_total.csv")
+skills = read.csv("skills_total.csv")
+job = read.csv("job_total.csv")
+
+
+job = job %>%
+  dplyr::rename(year = Year)
+
+job = job %>%  relocate(year)
+
+total = cbind(personal, skills, job)
+total = total[, -total$year]
+
+```
+
+
+**filter country**
+country < 3000
+
+```{r}
+
+country = as.data.frame(table(total["Country"]))
+country = country[country$Freq > 3000, ]
+
+
+country_filtered = total %>% filter(Country %in%
+                                      as.character(factor(country$Var1)))
+write.csv(country_filtered, "country_filtered.csv", row.names = FALSE)
+```
+
+**filter salary**
+```{r}
+salary_filtered = country_filtered %>% 
+  filter(!is.na(Salary)) %>%
+  filter(Salary != 0)
+write.csv(salary_filtered , "salary_filtered.csv", row.names = FALSE)
+```
+
+
+```{r}
+
+as.data.frame(table(salary_filtered["Ethnicity"]))
+as.data.frame(table(salary_filtered["EdLevel"]))
+as.data.frame(table(salary_filtered["Country"]))
+```
+
+
+
+

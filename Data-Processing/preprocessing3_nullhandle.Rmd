@@ -1,0 +1,207 @@
+---
+title: "naprocessing"
+output: html_document
+---
+
+
+# missing value handling
+
+```{r}
+library(dplyr)
+total = read.csv("salary_filtered.csv")
+
+```
+
+```{r}
+personal = total %>% select(year, Country, Age, Ethnicity, 
+                  Gender, EdLevel, UndergradMajor,Salary)
+# write.csv(personal, "personal_filtered.csv", row.names = FALSE)
+```
+
+
+
+```{r}
+as.data.frame(table(personal["Ethnicity"]))
+as.data.frame(table(personal["EdLevel"]))
+as.data.frame(table(personal["Country"]))
+as.data.frame(table(personal["Gender"]))
+
+```
+
+
+N/A handling
+```{r}
+summary(personal)
+```
+
+
+
+```{r}
+na.age = length(which(is.na(personal$Age)))
+na.year = length(which(is.na(personal$year)))
+na.Country = length(which(is.na(personal$Country)))
+na.Ethnicity = length(which(is.na(personal$Ethnicity)))
+na.Gender = length(which(is.na(personal$Gender)))
+na.Salary = length(which(is.na(personal$Salary)))
+na.UndergradMajor = length(which(is.na(personal$UndergradMajor)))
+na.EdLevel = length(which(is.na(personal$EdLevel)))
+
+```
+
+```{r}
+per18 = personal %>% filter(year == 2018)
+per19 = personal %>% filter(year == 2019)
+per20 = personal %>% filter(year == 2020)
+```
+
+ categorical value : 
+    Ethnicity
+    Gender
+    UndergradMajor
+    EdLevel
+    
+
+### finding most frequenct values (categorical)
+```{r}
+a = as.data.frame(table(personal["Ethnicity"]))
+fEthnicity = as.character(a[order(a$Freq, decreasing = TRUE),][1, "Var1"])
+
+
+a = as.data.frame(table(personal["EdLevel"]))
+fEdLevel = as.character(a[order(a$Freq, decreasing = TRUE),][1, "Var1"])
+
+
+a = as.data.frame(table(personal["UndergradMajor"]))
+fUndergradMajor = as.character(a[order(a$Freq, decreasing = TRUE),][1, "Var1"])
+
+
+a = as.data.frame(table(personal["Gender"]))
+fGender = as.character(a[order(a$Freq, decreasing = TRUE),][1, "Var1"])
+
+
+
+
+```
+
+
+
+```{r}
+rep.personal = personal
+
+rep.personal$EdLevel = rep.personal$EdLevel%>%
+  replace( is.na(rep.personal$EdLevel)  , fEdLevel)
+
+rep.personal$Gender = rep.personal$Gender%>%
+  replace( is.na(rep.personal$Gender)  , fGender)
+
+rep.personal$Ethnicity = rep.personal$Ethnicity%>%
+  replace( is.na(rep.personal$Ethnicity)  , fEthnicity)
+
+rep.personal$UndergradMajor = rep.personal$UndergradMajor%>%
+  replace( is.na(rep.personal$UndergradMajor)  , fUndergradMajor)
+
+
+```
+
+
+
+```{r}
+as.data.frame(table(rep.personal["UndergradMajor"]))
+as.data.frame(table(rep.personal["Ethnicity"]))
+as.data.frame(table(rep.personal["EdLevel"]))
+as.data.frame(table(rep.personal["Gender"]))
+
+
+```
+
+
+replace numerical variable : age
+
+1. age medium
+2. age mean
+```{r}
+
+age.median18 = median(per18[["Age"]], na.rm = TRUE)
+age.median19 = median(per19[["Age"]], na.rm = TRUE)
+age.median20 = median(per20[["Age"]], na.rm = TRUE)
+
+
+rep.personal$Age = rep.personal$Age%>%
+  replace( is.na(rep.personal$Age) & rep.personal$year == 2018,
+           age.median18)
+
+rep.personal$Age = rep.personal$Age%>%
+  replace( is.na(rep.personal$Age) & rep.personal$year == 2019,
+           age.median19)
+
+rep.personal$Age = rep.personal$Age%>%
+  replace( is.na(rep.personal$Age) & rep.personal$year == 2020,
+           age.median20)
+
+```
+
+
+
+
+```{r}
+
+
+rep.na.age = length(which(is.na(rep.personal$Age)))
+rep.na.year = length(which(is.na(rep.personal$year)))
+rep.na.Country = length(which(is.na(rep.personal$Country)))
+rep.na.Ethnicity = length(which(is.na(rep.personal$Ethnicity)))
+rep.na.Gender = length(which(is.na(rep.personal$Gender)))
+rep.na.Salary = length(which(is.na(rep.personal$Salary)))
+rep.na.UndergradMajor = length(which(is.na(rep.personal$UndergradMajor)))
+rep.na.EdLevel = length(which(is.na(rep.personal$EdLevel)))
+
+```
+
+
+
+
+
+## EdLevel --> numeric encoding
+
+
+
+```{r}
+edu_dict = list("No edu" = 0,
+                "elementary" = 1,
+                "Secondary" = 2,
+                "Associate" = 3,
+                "college/NoDegree" = 4,
+                "bachelors" = 5,
+                "masters" = 6,
+                "Professional" = 7,
+                "doctoral" = 8
+                  )
+
+for (i in 1:length(edu_dict)) {
+  rep.personal["EdLevel"] = rep.personal["EdLevel"] %>% 
+  replace( rep.personal["EdLevel"] == names(edu_dict[i]),
+           edu_dict[[i]]) %>%
+  unlist(unname(rep.personal["EdLevel"]))
+  }
+
+```
+
+
+
+
+```{r}
+
+as.data.frame(table(personal["EdLevel"]))
+as.data.frame(table(rep.personal["EdLevel"]))
+
+```
+
+
+```{r}
+write.csv(rep.personal, "personal_noNA.csv", row.names = FALSE)
+```
+
+
+
+
+

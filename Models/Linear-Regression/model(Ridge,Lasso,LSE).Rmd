@@ -1,0 +1,146 @@
+---
+title: "Model(Ridge,Lasso,LSE)"
+author: "LeeDongHyun"
+date: '2021 5 21 '
+output: html_document
+---
+## 작성자:20180661 이동현
+```{r}
+library(ElemStatLearn)
+library(leaps)
+library(ggplot2)
+library(glmnet)
+library(tictoc)
+train<-read.csv("log_trans_train.csv")
+test<-read.csv("log_trans_test.csv")
+
+predict.regsubsets = function(object,newdata,id,...){
+  form = as.formula(object$call[[2]]) # object은 regsubsets() object
+  mat = model.matrix(form,newdata) # model.matrix(model fit한 formula, data)
+  coefi = coef(object, id=id) # regsubsets() 결과에서 var이 ~개일 때의 coef 저장하기
+  xvars = names(coefi) # coefi 칼럼명 뽑아내기
+  mat[,xvars]%*%coefi
+}
+
+
+tic("sleeping")
+folds=sample(1:5, nrow(train), replace=T)
+FSS=regsubsets(Salary~.,data=train, nvmax=101, method="forward")
+plot(FSS$rss, xlab = "Number of Variables", ylab = "RSS", type = "p")
+train_fw=model.matrix(Salary~.,data=train)
+cve_fw=matrix(NA, 5, 101, dimnames = list(NULL,paste(1:101)))
+for (j in 1:5){
+  m_fw.best=regsubsets(Salary~.,data=train[folds!=j,], nvmax=101, method = "forward")
+  for (i in 1:97){
+    coef_i = coef(m_fw.best,id=i)
+    pred = train_fw[folds==j,names(coef_i)] %*% coef_i
+    cve_fw[j,i] = mean((train[folds==j,"Salary"]-pred)^2)
+  }
+}
+mean.cve_fw=apply(cve_fw,2,mean)
+opt_cve = data.frame('cve' = mean.cve_fw,'num.var' = 1:101)
+min=opt_cve$num.var[which.min(opt_cve$cve)]
+min
+r2=1-mean((test$Salary-predict(FSS,test,id=96))^2)/mean((test$Salary-11.00768)^2)
+r2
+toc()
+
+```
+모델명: Forward stepwise selection(library regusbsets)
+
+실험 파라미터:variable 개수
+
+실험 소요 시간: 32초
+
+결과: 96개의 변수를 선택해서 실행하는 것이 가장 효과적으로 나타남. r2 score는 0.6468761
+
+```{r , echo=TRUE}
+tic("sleeping")
+BSS=regsubsets(Salary~.,train,nvmax=101,method="backward")
+plot(BSS$rss, xlab = "Number of Variables", ylab = "RSS", type = "p")
+train_bw=model.matrix(Salary~.,data=train)
+cve_bw=matrix(NA, 5, 101, dimnames = list(NULL,paste(1:101)))
+for (j in 1:5){
+  m_bw.best=regsubsets(Salary~.,data=train[folds!=j,], nvmax=101, method = "backward")
+  for (i in 1:97){
+    coef_i = coef(m_bw.best,id=i)
+    pred = train_fw[folds==j,names(coef_i)] %*% coef_i
+    cve_bw[j,i] = mean((train[folds==j,"Salary"]-pred)^2)
+  }
+}
+mean.cve_bw=apply(cve_bw,2,mean)
+opt_cve = data.frame('cve' = mean.cve_bw,'num.var' = 1:101)
+min=opt_cve$num.var[which.min(opt_cve$cve)]
+min
+mean((test$Salary-predict(BSS,test,id=97))^2)
+r2=1-mean((test$Salary-predict(BSS,test,id=97))^2)/mean((test$Salary-11.00768)^2)
+r2
+toc()
+
+```
+모델명: Backward stepwise selection(library regusbsets)
+
+실험 파라미터:variable 개수
+
+실험 소요 시간: 14초
+
+결과: 97개의 변수를 선택해서 실행하는 것이 가장 효과적으로 나타남. r2 score는 0.6468744
+
+```{r , echo=TRUE}
+tic("sleeping")
+set.seed(1)
+folds=sample(1:5, nrow(train), replace=T)
+x1 = as.matrix(sapply((train)[,2:6],as.numeric))
+x2=as.matrix(sapply((train)[,-1:-6],as.logical))
+x=cbind(x1,x2)
+y = train$Salary
+##low cross validation error
+cve_rd = cv.glmnet(x,y,alpha=0,foldid=folds)
+lambda_r=cve_rd$lambda.min
+m_ridge = glmnet(x,y,alpha=0,lambda=lambda_r)
+x1 = as.matrix(sapply((test)[,2:6],as.numeric))
+x2=as.matrix(sapply((test)[,-1:-6],as.logical))
+x=cbind(x1,x2)
+pred_rd=predict(m_ridge,x,lambda_r)
+#test error
+mean((pred_rd-test$Salary)^2) #641913764
+r2=1-mean((test$Salary-pred_rd)^2)/mean((test$Salary-11.00768)^2)
+r2
+toc()
+```
+모델명: Ridge regression(library glmnet)
+
+실험 파라미터: 없음
+
+실험 소요 시간: 4초
+
+결과: r2 score는 0.644129
+
+```{r , echo=TRUE}
+tic("sleeping")
+set.seed(1)
+x1 = as.matrix(sapply((train)[,2:6],as.numeric))
+x2=as.matrix(sapply((train)[,-1:-6],as.logical))
+x=cbind(x1,x2)
+y = train$Salary
+cve_l = cv.glmnet(x,y,alpha=1, foldid = folds)
+lambda_l=cve_l$lambda.min
+lambda_l
+m_lasso = glmnet(x,y,alpha=1,lambda=lambda_l)
+x1 = as.matrix(sapply((test)[,2:6],as.numeric))
+x2=as.matrix(sapply((test)[,-1:-6],as.logical))
+x=cbind(x1,x2)
+pred_la=predict(m_lasso,x,s=lambda_l)
+#test error
+mean((pred_la-test$Salary)^2) 
+r2=1-mean((test$Salary-pred_la)^2)/mean((test$Salary-11.00768)^2)
+r2
+toc()
+```
+모델명: Lasso regression(library glmnet)
+
+실험 파라미터: lambda=0.0009313747
+
+실험 소요 시간: 3.67초
+
+결과: r2 score는 0.6462441, 12개의 variable이 0으로 설정된다.
